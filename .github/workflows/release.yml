@@ -65,6 +65,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Upload install.ps1 to release
+        run: gh release upload ${{ github.ref_name }} install.ps1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   bump-next-version:
     name: Bump Next Version
     runs-on: ubuntu-24.04

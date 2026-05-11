@@ -45,10 +45,16 @@ New to kdn? See the Glossary section for definitions of workspace, runtime, agen
 
 ### Install
 
-Download and run the install script:
+**Linux / macOS:**
 
 ```bash
 curl -sSfL https://github.com/openkaiden/kdn/releases/latest/download/install.sh | bash
+```
+
+**Windows (PowerShell):**
+
+```powershell
+irm https://github.com/openkaiden/kdn/releases/latest/download/install.ps1 | iex
 ```
 
 Alternatively, download a pre-built archive for your platform from the [latest release](https://github.com/openkaiden/kdn/releases/latest), extract it, and place the `kdn` binary somewhere on your `PATH`.
