@@ -16,6 +16,7 @@ package podman
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -40,7 +41,7 @@ func (p *podmanRuntime) Remove(ctx context.Context, id string) error {
 	stepLogger.Start("Checking container state", "Container state checked")
 	info, err := p.getContainerInfo(ctx, id)
 	if err != nil {
-		if isNotFoundError(err) {
+		if errors.Is(err, runtime.ErrInstanceNotFound) {
 			if podName, readErr := p.readPodName(id); readErr == nil {
 				p.cleanupWorkspaceTempDirs(podName)
 			}
@@ -94,13 +95,14 @@ func (p *podmanRuntime) cleanupWorkspaceTempDirs(podName string) {
 	}
 }
 
-// isNotFoundError checks if an error indicates that a container was not found.
+// isNotFoundError checks if an error indicates that a container or pod was not found.
 func isNotFoundError(err error) bool {
 	if err == nil {
 		return false
 	}
 	errMsg := err.Error()
 	return strings.Contains(errMsg, "no such container") ||
+		strings.Contains(errMsg, "no such pod") ||
 		strings.Contains(errMsg, "no such object") ||
 		strings.Contains(errMsg, "error getting container") ||
 		strings.Contains(errMsg, "failed to inspect container")

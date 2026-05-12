@@ -89,8 +89,9 @@ func TestStop_PodInspectFailure(t *testing.T) {
 	containerID := "abc123"
 	fakeExec := exec.NewFake()
 
+	// Generic (non-not-found) inspect error.
 	fakeExec.OutputFunc = func(ctx context.Context, args ...string) ([]byte, error) {
-		return nil, fmt.Errorf("pod not found")
+		return nil, fmt.Errorf("connection refused")
 	}
 
 	p := newWithDeps(&fakeSystem{}, fakeExec).(*podmanRuntime)
@@ -105,6 +106,30 @@ func TestStop_PodInspectFailure(t *testing.T) {
 
 	if len(fakeExec.RunCalls) != 0 {
 		t.Errorf("Expected no Run calls when inspect fails, got: %v", fakeExec.RunCalls)
+	}
+}
+
+func TestStop_PodManuallyDeleted(t *testing.T) {
+	t.Parallel()
+
+	containerID := "abc123"
+	fakeExec := exec.NewFake()
+
+	// Simulate `podman pod inspect` failing with "no such pod" (manually deleted pod).
+	fakeExec.OutputFunc = func(ctx context.Context, args ...string) ([]byte, error) {
+		return nil, fmt.Errorf("exit status 125\nPodman stderr:\nError: no such pod %q", "test-ws")
+	}
+
+	p := newWithDeps(&fakeSystem{}, fakeExec).(*podmanRuntime)
+	setupPodFiles(t, p, containerID, "test-ws")
+
+	err := p.Stop(context.Background(), containerID)
+	if err != nil {
+		t.Fatalf("Stop() expected nil for manually-deleted pod, got: %v", err)
+	}
+
+	if len(fakeExec.RunCalls) != 0 {
+		t.Errorf("Expected no Run calls for missing pod, got: %v", fakeExec.RunCalls)
 	}
 }
 
@@ -221,5 +246,28 @@ func TestStop_StepLogger_FailOnContainerStop(t *testing.T) {
 
 	if len(fakeLogger.failCalls) != 1 {
 		t.Fatalf("Expected 1 Fail() call, got %d", len(fakeLogger.failCalls))
+	}
+}
+
+func TestStop_OrphanedWorkspace_MissingPodNameFile(t *testing.T) {
+	t.Parallel()
+
+	containerID := "abc123"
+	fakeExec := exec.NewFake()
+
+	// Do NOT set up pod files — simulate an orphaned workspace from a different machine.
+	p := newWithDeps(&fakeSystem{}, fakeExec).(*podmanRuntime)
+
+	err := p.Stop(context.Background(), containerID)
+	if err != nil {
+		t.Fatalf("Stop() expected nil for orphaned workspace (missing pod name file), got: %v", err)
+	}
+
+	// Verify no podman commands were issued.
+	if len(fakeExec.OutputCalls) != 0 {
+		t.Errorf("Expected no Output calls for orphaned workspace, got: %v", fakeExec.OutputCalls)
+	}
+	if len(fakeExec.RunCalls) != 0 {
+		t.Errorf("Expected no Run calls for orphaned workspace, got: %v", fakeExec.RunCalls)
 	}
 }
