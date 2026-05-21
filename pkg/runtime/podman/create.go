@@ -92,7 +92,8 @@ func (p *podmanRuntime) createInstanceDirectory(name string) (string, error) {
 // so they can be embedded in the image via a COPY instruction.
 // If featureInfos is non-empty, the features have already been downloaded to instanceDir/features/
 // and the Containerfile will include instructions to install them.
-func (p *podmanRuntime) createContainerfile(instanceDir string, imageConfig *config.ImageConfig, agentConfig *config.AgentConfig, settings map[string]agent.SettingsFile, featureInfos []featureInstallInfo) error {
+// If certsCopied is true, the Containerfile will include instructions to install system CA certificates.
+func (p *podmanRuntime) createContainerfile(instanceDir string, imageConfig *config.ImageConfig, agentConfig *config.AgentConfig, settings map[string]agent.SettingsFile, featureInfos []featureInstallInfo, certsCopied bool) error {
 	// Generate sudoers content
 	sudoersContent := generateSudoers(imageConfig.Sudo)
 	sudoersPath := filepath.Join(instanceDir, "sudoers")
@@ -122,7 +123,7 @@ func (p *podmanRuntime) createContainerfile(instanceDir string, imageConfig *con
 	}
 
 	// Generate Containerfile content
-	containerfileContent := generateContainerfile(imageConfig, agentConfig, len(settings) > 0, featureInfos)
+	containerfileContent := generateContainerfile(imageConfig, agentConfig, len(settings) > 0, featureInfos, certsCopied)
 	containerfilePath := filepath.Join(instanceDir, "Containerfile")
 	if err := os.WriteFile(containerfilePath, []byte(containerfileContent), 0644); err != nil {
 		return fmt.Errorf("failed to write Containerfile: %w", err)
@@ -135,7 +136,8 @@ func (p *podmanRuntime) createContainerfile(instanceDir string, imageConfig *con
 // so they can be installed during the image build for enterprise proxy support.
 // This enables containers to trust self-signed certificates from corporate proxies
 // like Netskope during package installation (dnf install, curl, etc.).
-func (p *podmanRuntime) copySystemCACertificates(instanceDir string) error {
+// Returns true if certificates were copied, false otherwise.
+func (p *podmanRuntime) copySystemCACertificates(instanceDir string) (bool, error) {
 	// Try to read system CA certificates from standard Linux locations
 	certPaths := []string{
 		"/etc/ssl/certs/ca-certificates.crt",
@@ -154,21 +156,21 @@ func (p *podmanRuntime) copySystemCACertificates(instanceDir string) error {
 
 	// If no system certs found, skip gracefully (not an error)
 	if len(certContent) == 0 {
-		return nil
+		return false, nil
 	}
 
 	// Create certs directory in build context
 	certsDir := filepath.Join(instanceDir, "certs")
 	if err := os.MkdirAll(certsDir, 0755); err != nil {
-		return fmt.Errorf("failed to create certs directory: %w", err)
+		return false, fmt.Errorf("failed to create certs directory: %w", err)
 	}
 
 	certPath := filepath.Join(certsDir, "system-ca.crt")
 	if err := os.WriteFile(certPath, certContent, 0644); err != nil {
-		return fmt.Errorf("failed to write system CA certificates: %w", err)
+		return false, fmt.Errorf("failed to write system CA certificates: %w", err)
 	}
 
-	return nil
+	return true, nil
 }
 
 // prepareFeatures downloads, orders, and merges options for devcontainer features declared in params.
@@ -514,15 +516,17 @@ func (p *podmanRuntime) Create(ctx context.Context, params runtime.CreateParams)
 		}
 	}
 
-	// Create Containerfile
-	stepLogger.Start("Generating Containerfile", "Containerfile generated")
-	if err := p.createContainerfile(instanceDir, imageConfig, agentConfig, params.AgentSettings, featureInfos); err != nil {
+	// Copy system CA certificates to build context for enterprise proxy support
+	// This must happen before Containerfile generation so we know whether to include COPY instructions
+	certsCopied, err := p.copySystemCACertificates(instanceDir)
+	if err != nil {
 		stepLogger.Fail(err)
 		return runtime.RuntimeInfo{}, err
 	}
 
-	// Copy system CA certificates to build context for enterprise proxy support
-	if err := p.copySystemCACertificates(instanceDir); err != nil {
+	// Create Containerfile
+	stepLogger.Start("Generating Containerfile", "Containerfile generated")
+	if err := p.createContainerfile(instanceDir, imageConfig, agentConfig, params.AgentSettings, featureInfos, certsCopied); err != nil {
 		stepLogger.Fail(err)
 		return runtime.RuntimeInfo{}, err
 	}

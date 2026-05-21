@@ -1,0 +1,12 @@
+{
+  "skills": [
+    "/home/wherka/.claude/skills/amadeus-microservice-lifecycle"
+  ],
+  "network": {
+    "mode": "deny",
+    "hosts": [
+      "registry.npmjs.org",
+      "pypi.python.org"
+    ]
+  }
+}

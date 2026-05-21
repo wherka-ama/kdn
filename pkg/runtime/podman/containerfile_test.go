@@ -96,7 +96,7 @@ func TestGenerateContainerfile(t *testing.T) {
 			TerminalCommand: []string{"claude"},
 		}
 
-		result := generateContainerfile(imageConfig, agentConfig, false, nil)
+		result := generateContainerfile(imageConfig, agentConfig, false, nil, false)
 
 		// Check for FROM line with correct base image
 		expectedFrom := "FROM registry.fedoraproject.org/fedora:latest"
@@ -140,14 +140,6 @@ func TestGenerateContainerfile(t *testing.T) {
 			t.Error("Expected COPY Containerfile line")
 		}
 
-		// Check for CA certificate copy and installation
-		if !strings.Contains(result, "COPY certs/system-ca.crt /tmp/system-ca.crt || true") {
-			t.Error("Expected CA certificate copy line")
-		}
-		if !strings.Contains(result, "RUN if [ -f /tmp/system-ca.crt ]; then cp /tmp/system-ca.crt /etc/pki/ca-trust/source/anchors/system-ca.crt && update-ca-trust; fi") {
-			t.Error("Expected CA certificate installation line")
-		}
-
 		// Check for agent RUN commands
 		if !strings.Contains(result, "RUN curl -fsSL https://claude.ai/install.sh | bash") {
 			t.Error("Expected agent RUN command")
@@ -169,7 +161,7 @@ func TestGenerateContainerfile(t *testing.T) {
 			TerminalCommand: []string{"claude"},
 		}
 
-		result := generateContainerfile(imageConfig, agentConfig, false, nil)
+		result := generateContainerfile(imageConfig, agentConfig, false, nil, false)
 
 		expectedFrom := "FROM registry.fedoraproject.org/fedora:40"
 		if !strings.Contains(result, expectedFrom) {
@@ -192,7 +184,7 @@ func TestGenerateContainerfile(t *testing.T) {
 			TerminalCommand: []string{"claude"},
 		}
 
-		result := generateContainerfile(imageConfig, agentConfig, false, nil)
+		result := generateContainerfile(imageConfig, agentConfig, false, nil, false)
 
 		// Should have all packages in a single RUN command
 		if !strings.Contains(result, "RUN dnf install -y package1 package2 package3 package4") {
@@ -215,7 +207,7 @@ func TestGenerateContainerfile(t *testing.T) {
 			TerminalCommand: []string{"claude"},
 		}
 
-		result := generateContainerfile(imageConfig, agentConfig, false, nil)
+		result := generateContainerfile(imageConfig, agentConfig, false, nil, false)
 
 		// Should not have dnf install line
 		if strings.Contains(result, "dnf install") {
@@ -239,7 +231,7 @@ func TestGenerateContainerfile(t *testing.T) {
 			TerminalCommand: []string{"claude"},
 		}
 
-		result := generateContainerfile(imageConfig, agentConfig, false, nil)
+		result := generateContainerfile(imageConfig, agentConfig, false, nil, false)
 
 		// Should have both RUN commands
 		if !strings.Contains(result, "RUN echo 'image setup'") {
@@ -265,7 +257,7 @@ func TestGenerateContainerfile(t *testing.T) {
 			TerminalCommand: []string{"claude"},
 		}
 
-		result := generateContainerfile(imageConfig, agentConfig, true, nil)
+		result := generateContainerfile(imageConfig, agentConfig, true, nil, false)
 
 		expected := "COPY --chown=agent:agent agent-settings/. /home/agent/"
 		if !strings.Contains(result, expected) {
@@ -298,7 +290,7 @@ func TestGenerateContainerfile(t *testing.T) {
 			TerminalCommand: []string{"claude"},
 		}
 
-		result := generateContainerfile(imageConfig, agentConfig, false, nil)
+		result := generateContainerfile(imageConfig, agentConfig, false, nil, false)
 
 		if strings.Contains(result, "agent-settings") {
 			t.Errorf("Expected no agent-settings COPY line, got:\n%s", result)
@@ -321,7 +313,7 @@ func TestGenerateContainerfile(t *testing.T) {
 			TerminalCommand: []string{"claude"},
 		}
 
-		result := generateContainerfile(imageConfig, agentConfig, false, nil)
+		result := generateContainerfile(imageConfig, agentConfig, false, nil, false)
 
 		// Find positions
 		imagePos := strings.Index(result, "RUN echo 'image'")
@@ -406,7 +398,7 @@ func TestGenerateContainerfile_WithFeatures(t *testing.T) {
 			{dirName: "feature-0", options: nil, envVars: nil},
 		}
 
-		result := generateContainerfile(imageConfig, agentConfig, false, infos)
+		result := generateContainerfile(imageConfig, agentConfig, false, infos, false)
 
 		if !strings.Contains(result, "COPY features/feature-0/ /tmp/feature-install/feature-0/") {
 			t.Error("Expected COPY instruction for feature-0")
@@ -448,7 +440,7 @@ func TestGenerateContainerfile_WithFeatures(t *testing.T) {
 			{dirName: "feature-0", options: map[string]string{"VERSION": "1.21", "INSTALL": "true"}, envVars: nil},
 		}
 
-		result := generateContainerfile(imageConfig, agentConfig, false, infos)
+		result := generateContainerfile(imageConfig, agentConfig, false, infos, false)
 
 		expected := `RUN chmod +x /tmp/feature-install/feature-0/install.sh && INSTALL="true" VERSION="1.21" /tmp/feature-install/feature-0/install.sh`
 		if !strings.Contains(result, expected) {
@@ -467,7 +459,7 @@ func TestGenerateContainerfile_WithFeatures(t *testing.T) {
 			},
 		}
 
-		result := generateContainerfile(imageConfig, agentConfig, false, infos)
+		result := generateContainerfile(imageConfig, agentConfig, false, infos, false)
 
 		if !strings.Contains(result, `ENV GOPATH="/home/agent/go"`) {
 			t.Errorf("Expected ENV GOPATH instruction\nGot:\n%s", result)
@@ -484,7 +476,7 @@ func TestGenerateContainerfile_WithFeatures(t *testing.T) {
 			{dirName: "feature-0", options: nil, envVars: nil},
 		}
 
-		result := generateContainerfile(imageConfig, agentConfig, false, infos)
+		result := generateContainerfile(imageConfig, agentConfig, false, infos, false)
 
 		featureCopyPos := strings.Index(result, "COPY features/feature-0/")
 		imageRunPos := strings.Index(result, "RUN echo 'image setup'")
@@ -506,7 +498,7 @@ func TestGenerateContainerfile_WithFeatures(t *testing.T) {
 			{dirName: "feature-1", options: nil, envVars: nil},
 		}
 
-		result := generateContainerfile(imageConfig, agentConfig, false, infos)
+		result := generateContainerfile(imageConfig, agentConfig, false, infos, false)
 
 		feature0Pos := strings.Index(result, "COPY features/feature-0/")
 		feature1Pos := strings.Index(result, "COPY features/feature-1/")
@@ -527,7 +519,7 @@ func TestGenerateContainerfile_WithFeatures(t *testing.T) {
 	t.Run("no feature instructions when featureInfos is nil", func(t *testing.T) {
 		t.Parallel()
 
-		result := generateContainerfile(imageConfig, agentConfig, false, nil)
+		result := generateContainerfile(imageConfig, agentConfig, false, nil, false)
 
 		if strings.Contains(result, "COPY features/") {
 			t.Errorf("Expected no feature COPY instructions\nGot:\n%s", result)
@@ -544,7 +536,7 @@ func TestGenerateContainerfile_WithFeatures(t *testing.T) {
 			{dirName: "feature-0", options: nil, envVars: nil},
 		}
 
-		result := generateContainerfile(imageConfig, agentConfig, false, infos)
+		result := generateContainerfile(imageConfig, agentConfig, false, infos, false)
 
 		if !strings.Contains(result, `ENV _REMOTE_USER="agent"`) {
 			t.Errorf("Expected ENV _REMOTE_USER=\"agent\"\nGot:\n%s", result)
@@ -572,7 +564,7 @@ func TestGenerateContainerfile_WithFeatures(t *testing.T) {
 	t.Run("_REMOTE_USER and _REMOTE_USER_HOME are not set when no features", func(t *testing.T) {
 		t.Parallel()
 
-		result := generateContainerfile(imageConfig, agentConfig, false, nil)
+		result := generateContainerfile(imageConfig, agentConfig, false, nil, false)
 
 		if strings.Contains(result, "_REMOTE_USER") {
 			t.Errorf("Expected no _REMOTE_USER when no features\nGot:\n%s", result)
@@ -586,7 +578,7 @@ func TestGenerateContainerfile_WithFeatures(t *testing.T) {
 			{dirName: "feature-0", options: nil, envVars: nil},
 		}
 
-		result := generateContainerfile(imageConfig, agentConfig, true, infos)
+		result := generateContainerfile(imageConfig, agentConfig, true, infos, false)
 
 		featureCopyPos := strings.Index(result, "COPY features/feature-0/")
 		agentSettingsPos := strings.Index(result, "COPY --chown=agent:agent agent-settings/.")
@@ -596,6 +588,32 @@ func TestGenerateContainerfile_WithFeatures(t *testing.T) {
 		}
 		if featureCopyPos > agentSettingsPos {
 			t.Error("Expected feature COPY to appear before agent-settings COPY")
+		}
+	})
+
+	t.Run("includes CA certificate COPY when certsCopied is true", func(t *testing.T) {
+		t.Parallel()
+
+		result := generateContainerfile(imageConfig, agentConfig, false, nil, true)
+
+		if !strings.Contains(result, "COPY certs/system-ca.crt /tmp/system-ca.crt") {
+			t.Error("Expected CA certificate COPY instruction when certsCopied is true")
+		}
+		if !strings.Contains(result, "RUN cp /tmp/system-ca.crt /etc/pki/ca-trust/source/anchors/system-ca.crt && update-ca-trust") {
+			t.Error("Expected CA certificate installation RUN instruction when certsCopied is true")
+		}
+	})
+
+	t.Run("omits CA certificate COPY when certsCopied is false", func(t *testing.T) {
+		t.Parallel()
+
+		result := generateContainerfile(imageConfig, agentConfig, false, nil, false)
+
+		if strings.Contains(result, "COPY certs/system-ca.crt") {
+			t.Error("Expected no CA certificate COPY instruction when certsCopied is false")
+		}
+		if strings.Contains(result, "update-ca-trust") {
+			t.Error("Expected no update-ca-trust when certsCopied is false")
 		}
 	})
 }

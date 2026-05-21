@@ -190,7 +190,7 @@ func TestCopySystemCACertificates(t *testing.T) {
 		// The function reads from hardcoded system paths, so we can't easily mock this
 		// in a unit test without refactoring. For now, we just verify the function
 		// doesn't error when called.
-		err := p.copySystemCACertificates(instanceDir)
+		certsCopied, err := p.copySystemCACertificates(instanceDir)
 		if err != nil {
 			t.Fatalf("copySystemCACertificates() failed: %v", err)
 		}
@@ -198,6 +198,7 @@ func TestCopySystemCACertificates(t *testing.T) {
 		// Note: We can't reliably test the "no certs" case since the test system
 		// might have CA certificates. The function is designed to be idempotent
 		// and safe to call regardless of whether certs exist.
+		_ = certsCopied // Use the variable to avoid lint error
 	})
 
 	t.Run("does not error when system certs exist", func(t *testing.T) {
@@ -207,7 +208,7 @@ func TestCopySystemCACertificates(t *testing.T) {
 		p := &podmanRuntime{}
 
 		// Call the function - it should work whether or not system certs exist
-		err := p.copySystemCACertificates(instanceDir)
+		certsCopied, err := p.copySystemCACertificates(instanceDir)
 		if err != nil {
 			t.Fatalf("copySystemCACertificates() failed: %v", err)
 		}
@@ -225,9 +226,16 @@ func TestCopySystemCACertificates(t *testing.T) {
 			if len(content) == 0 {
 				t.Error("Expected cert file to have content")
 			}
+			if !certsCopied {
+				t.Error("Expected certsCopied to be true when certs were copied")
+			}
+		} else {
+			// If certs don't exist on the test system, that's also fine - the function
+			// should have returned without error and certsCopied should be false
+			if certsCopied {
+				t.Error("Expected certsCopied to be false when no certs were copied")
+			}
 		}
-		// If certs don't exist on the test system, that's also fine - the function
-		// should have returned without error
 	})
 }
 
@@ -254,7 +262,7 @@ func TestCreateContainerfile(t *testing.T) {
 			TerminalCommand: []string{"claude"},
 		}
 
-		err := p.createContainerfile(instanceDir, imageConfig, agentConfig, nil, nil)
+		err := p.createContainerfile(instanceDir, imageConfig, agentConfig, nil, nil, false)
 		if err != nil {
 			t.Fatalf("createContainerfile() failed: %v", err)
 		}
@@ -305,7 +313,7 @@ func TestCreateContainerfile(t *testing.T) {
 			TerminalCommand: []string{"custom-agent"},
 		}
 
-		err := p.createContainerfile(instanceDir, imageConfig, agentConfig, nil, nil)
+		err := p.createContainerfile(instanceDir, imageConfig, agentConfig, nil, nil, false)
 		if err != nil {
 			t.Fatalf("createContainerfile() failed: %v", err)
 		}
@@ -371,7 +379,7 @@ func TestCreateContainerfile(t *testing.T) {
 			".gitconfig":            {Content: []byte("[user]\n\tname = Agent\n")},
 		}
 
-		err := p.createContainerfile(instanceDir, imageConfig, agentConfig, settings, nil)
+		err := p.createContainerfile(instanceDir, imageConfig, agentConfig, settings, nil, false)
 		if err != nil {
 			t.Fatalf("createContainerfile() failed: %v", err)
 		}
@@ -431,7 +439,7 @@ func TestCreateContainerfile(t *testing.T) {
 			TerminalCommand: []string{"claude"},
 		}
 
-		err := p.createContainerfile(instanceDir, imageConfig, agentConfig, nil, nil)
+		err := p.createContainerfile(instanceDir, imageConfig, agentConfig, nil, nil, false)
 		if err != nil {
 			t.Fatalf("createContainerfile() failed: %v", err)
 		}
