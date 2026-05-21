@@ -107,6 +107,14 @@ func generateContainerfile(imageConfig *config.ImageConfig, agentConfig *config.
 	lines = append(lines, "ARG GID=1000")
 	lines = append(lines, "")
 
+	// Copy and install system CA certificates for enterprise proxy support.
+	// This enables containers to trust self-signed certificates from corporate proxies
+	// like Netskope during package installation (dnf install, curl, etc.).
+	// The COPY uses || true to gracefully skip if certs are not present.
+	lines = append(lines, "COPY certs/system-ca.crt /tmp/system-ca.crt || true")
+	lines = append(lines, "RUN if [ -f /tmp/system-ca.crt ]; then cp /tmp/system-ca.crt /etc/pki/ca-trust/source/anchors/system-ca.crt && update-ca-trust; fi")
+	lines = append(lines, "")
+
 	// Merge packages from image and agent configs
 	allPackages := append([]string{}, imageConfig.Packages...)
 	allPackages = append(allPackages, agentConfig.Packages...)

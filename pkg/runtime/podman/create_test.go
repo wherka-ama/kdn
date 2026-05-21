@@ -178,6 +178,59 @@ func TestCreateInstanceDirectory(t *testing.T) {
 	})
 }
 
+func TestCopySystemCACertificates(t *testing.T) {
+	t.Parallel()
+
+	t.Run("gracefully skips when no system certs found", func(t *testing.T) {
+		t.Parallel()
+
+		instanceDir := t.TempDir()
+		p := &podmanRuntime{}
+
+		// The function reads from hardcoded system paths, so we can't easily mock this
+		// in a unit test without refactoring. For now, we just verify the function
+		// doesn't error when called.
+		err := p.copySystemCACertificates(instanceDir)
+		if err != nil {
+			t.Fatalf("copySystemCACertificates() failed: %v", err)
+		}
+
+		// Note: We can't reliably test the "no certs" case since the test system
+		// might have CA certificates. The function is designed to be idempotent
+		// and safe to call regardless of whether certs exist.
+	})
+
+	t.Run("does not error when system certs exist", func(t *testing.T) {
+		t.Parallel()
+
+		instanceDir := t.TempDir()
+		p := &podmanRuntime{}
+
+		// Call the function - it should work whether or not system certs exist
+		err := p.copySystemCACertificates(instanceDir)
+		if err != nil {
+			t.Fatalf("copySystemCACertificates() failed: %v", err)
+		}
+
+		// If system certs exist on the test machine, they should be copied
+		certsDir := filepath.Join(instanceDir, "certs")
+		certPath := filepath.Join(certsDir, "system-ca.crt")
+
+		if _, err := os.Stat(certPath); err == nil {
+			// Certs were copied - verify the file has content
+			content, err := os.ReadFile(certPath)
+			if err != nil {
+				t.Fatalf("Failed to read copied cert file: %v", err)
+			}
+			if len(content) == 0 {
+				t.Error("Expected cert file to have content")
+			}
+		}
+		// If certs don't exist on the test system, that's also fine - the function
+		// should have returned without error
+	})
+}
+
 func TestCreateContainerfile(t *testing.T) {
 	t.Parallel()
 

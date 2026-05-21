@@ -131,6 +131,46 @@ func (p *podmanRuntime) createContainerfile(instanceDir string, imageConfig *con
 	return nil
 }
 
+// copySystemCACertificates copies system CA certificates to the build context
+// so they can be installed during the image build for enterprise proxy support.
+// This enables containers to trust self-signed certificates from corporate proxies
+// like Netskope during package installation (dnf install, curl, etc.).
+func (p *podmanRuntime) copySystemCACertificates(instanceDir string) error {
+	// Try to read system CA certificates from standard Linux locations
+	certPaths := []string{
+		"/etc/ssl/certs/ca-certificates.crt",
+		"/etc/ssl/certs/ca-bundle.crt",
+		"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
+		"/etc/pki/tls/certs/ca-bundle.crt",
+	}
+
+	var certContent []byte
+	for _, path := range certPaths {
+		if content, err := os.ReadFile(path); err == nil && len(content) > 0 {
+			certContent = content
+			break
+		}
+	}
+
+	// If no system certs found, skip gracefully (not an error)
+	if len(certContent) == 0 {
+		return nil
+	}
+
+	// Create certs directory in build context
+	certsDir := filepath.Join(instanceDir, "certs")
+	if err := os.MkdirAll(certsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create certs directory: %w", err)
+	}
+
+	certPath := filepath.Join(certsDir, "system-ca.crt")
+	if err := os.WriteFile(certPath, certContent, 0644); err != nil {
+		return fmt.Errorf("failed to write system CA certificates: %w", err)
+	}
+
+	return nil
+}
+
 // prepareFeatures downloads, orders, and merges options for devcontainer features declared in params.
 // Feature directories are written to instanceDir/features/{dirName}/.
 // Returns nil if no features are configured.
@@ -477,6 +517,12 @@ func (p *podmanRuntime) Create(ctx context.Context, params runtime.CreateParams)
 	// Create Containerfile
 	stepLogger.Start("Generating Containerfile", "Containerfile generated")
 	if err := p.createContainerfile(instanceDir, imageConfig, agentConfig, params.AgentSettings, featureInfos); err != nil {
+		stepLogger.Fail(err)
+		return runtime.RuntimeInfo{}, err
+	}
+
+	// Copy system CA certificates to build context for enterprise proxy support
+	if err := p.copySystemCACertificates(instanceDir); err != nil {
 		stepLogger.Fail(err)
 		return runtime.RuntimeInfo{}, err
 	}

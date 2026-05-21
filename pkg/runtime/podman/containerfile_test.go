@@ -140,6 +140,14 @@ func TestGenerateContainerfile(t *testing.T) {
 			t.Error("Expected COPY Containerfile line")
 		}
 
+		// Check for CA certificate copy and installation
+		if !strings.Contains(result, "COPY certs/system-ca.crt /tmp/system-ca.crt || true") {
+			t.Error("Expected CA certificate copy line")
+		}
+		if !strings.Contains(result, "RUN if [ -f /tmp/system-ca.crt ]; then cp /tmp/system-ca.crt /etc/pki/ca-trust/source/anchors/system-ca.crt && update-ca-trust; fi") {
+			t.Error("Expected CA certificate installation line")
+		}
+
 		// Check for agent RUN commands
 		if !strings.Contains(result, "RUN curl -fsSL https://claude.ai/install.sh | bash") {
 			t.Error("Expected agent RUN command")
