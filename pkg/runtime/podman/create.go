@@ -53,6 +53,7 @@ type podTemplateData struct {
 	AgentUID           int
 	BaseImageRegistry  string
 	BaseImageVersion   string
+	WorkspaceImage     string // The built workspace image with nftables pre-installed
 	SourcePath         string
 	ProjectID          string
 	Agent              string
@@ -567,6 +568,7 @@ func (p *podmanRuntime) Create(ctx context.Context, params runtime.CreateParams)
 		AgentUID:           p.system.Getuid(),
 		BaseImageRegistry:  constants.BaseImageRegistry,
 		BaseImageVersion:   imageConfig.Version,
+		WorkspaceImage:     imageName, // Use the built workspace image with nftables pre-installed
 		SourcePath:         params.SourcePath,
 		ProjectID:          params.ProjectID,
 		Agent:              params.Agent,

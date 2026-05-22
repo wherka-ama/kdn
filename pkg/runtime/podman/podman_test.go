@@ -175,6 +175,7 @@ func TestWritePodFiles(t *testing.T) {
 			AgentUID:          1000,
 			BaseImageRegistry: "registry.fedoraproject.org/fedora",
 			BaseImageVersion:  "latest",
+			WorkspaceImage:    "kdn-my-project",
 		}
 
 		err := p.writePodFiles(containerID, data)
@@ -218,6 +219,7 @@ func TestWritePodFiles(t *testing.T) {
 			AgentUID:          1000,
 			BaseImageRegistry: "registry.fedoraproject.org/fedora",
 			BaseImageVersion:  "latest",
+			WorkspaceImage:    "kdn-test-ws",
 		}
 
 		err := p.writePodFiles(containerID, data)
@@ -260,6 +262,7 @@ func TestCleanupPodFiles(t *testing.T) {
 		AgentUID:          1000,
 		BaseImageRegistry: "registry.fedoraproject.org/fedora",
 		BaseImageVersion:  "latest",
+		WorkspaceImage:    "kdn-my-ws",
 	}
 
 	if err := p.writePodFiles(containerID, data); err != nil {
@@ -290,6 +293,7 @@ func TestRenderPodYAML(t *testing.T) {
 			AgentUID:           1000,
 			BaseImageRegistry:  "registry.fedoraproject.org/fedora",
 			BaseImageVersion:   "latest",
+			WorkspaceImage:     "kdn-my-project",
 			ApprovalHandlerDir: "/tmp/approval-handler/my-project",
 		}
 
@@ -347,6 +351,7 @@ func TestRenderPodYAML(t *testing.T) {
 			AgentUID:           1000,
 			BaseImageRegistry:  "registry.fedoraproject.org/fedora",
 			BaseImageVersion:   "42",
+			WorkspaceImage:     "kdn-test",
 			ApprovalHandlerDir: "/tmp/approval-handler/test",
 		}
 

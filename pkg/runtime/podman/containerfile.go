@@ -121,6 +121,9 @@ func generateContainerfile(imageConfig *config.ImageConfig, agentConfig *config.
 	allPackages := append([]string{}, imageConfig.Packages...)
 	allPackages = append(allPackages, agentConfig.Packages...)
 
+	// Always install nftables for network guard firewall functionality
+	allPackages = append(allPackages, "nftables")
+
 	// Install packages if any
 	if len(allPackages) > 0 {
 		lines = append(lines, fmt.Sprintf("RUN dnf install -y %s", strings.Join(allPackages, " ")))

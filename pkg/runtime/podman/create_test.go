@@ -2282,6 +2282,7 @@ func TestRenderPodYAML_Ports(t *testing.T) {
 			AgentUID:           1000,
 			BaseImageRegistry:  "registry.example.com/base",
 			BaseImageVersion:   "latest",
+			WorkspaceImage:     "kdn-port-workspace",
 			SourcePath:         "/workspace/sources",
 			ApprovalHandlerDir: "/tmp/approval",
 			Forwards: []api.WorkspaceForward{
@@ -2323,6 +2324,7 @@ func TestRenderPodYAML_Ports(t *testing.T) {
 			AgentUID:           1000,
 			BaseImageRegistry:  "registry.example.com/base",
 			BaseImageVersion:   "latest",
+			WorkspaceImage:     "kdn-no-port-workspace",
 			SourcePath:         "/workspace/sources",
 			ApprovalHandlerDir: "/tmp/approval",
 		}
