@@ -810,9 +810,44 @@ func (p *podmanRuntime) setupOnecli(ctx context.Context, stepLogger steplogger.S
 
 	// Stop the pod before creating the workspace container
 	stepLogger.Start("Stopping OneCLI services", "OneCLI services stopped")
-	if err := p.executor.Run(ctx, l.Stdout(), l.Stderr(), "pod", "stop", podName); err != nil {
-		stepLogger.Fail(err)
-		return nil, fmt.Errorf("failed to stop pod after OneCLI setup: %w", err)
+
+	// Check if pod is already stopped to avoid netavark cleanup errors
+	inspectOutput := &bytes.Buffer{}
+	inspectErr := p.executor.Run(ctx, inspectOutput, l.Stderr(), "pod", "inspect", "--format", "{{.State}}", podName)
+	podState := strings.TrimSpace(inspectOutput.String())
+
+	// Only try to stop if the pod is running or in an intermediate state
+	if inspectErr == nil && podState != "Stopped" && podState != "Exited" {
+		if err := p.executor.Run(ctx, l.Stdout(), l.Stderr(), "pod", "stop", podName); err != nil {
+			// Check if this is the netavark aardvark entries error (known Podman bug)
+			// If so, verify the pod is actually stopped and continue
+			if strings.Contains(err.Error(), "remove aardvark entries") || strings.Contains(err.Error(), "IO error: No such file or directory") {
+				// Verify pod is actually stopped despite the error
+				verifyOutput := &bytes.Buffer{}
+				verifyErr := p.executor.Run(ctx, verifyOutput, l.Stderr(), "pod", "inspect", "--format", "{{.State}}", podName)
+				if verifyErr == nil && strings.TrimSpace(verifyOutput.String()) == "Stopped" {
+					// Pod is stopped, ignore the netavark cleanup error
+					// This is a known Podman/netavark bug where network cleanup fails
+					// but the pod is successfully stopped
+				} else {
+					// Pod is not stopped, return the original error
+					stepLogger.Fail(err)
+					return nil, fmt.Errorf("failed to stop pod after OneCLI setup: %w", err)
+				}
+			} else {
+				stepLogger.Fail(err)
+				return nil, fmt.Errorf("failed to stop pod after OneCLI setup: %w", err)
+			}
+		}
+	} else if inspectErr != nil {
+		// If inspect failed, try to stop anyway (pod might not exist yet)
+		if err := p.executor.Run(ctx, l.Stdout(), l.Stderr(), "pod", "stop", podName); err != nil {
+			// Ignore error if pod doesn't exist
+			if !strings.Contains(err.Error(), "no such pod") && !strings.Contains(err.Error(), "no such container") {
+				stepLogger.Fail(err)
+				return nil, fmt.Errorf("failed to stop pod after OneCLI setup: %w", err)
+			}
+		}
 	}
 
 	return containerConfig, nil
